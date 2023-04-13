@@ -312,15 +312,17 @@ app.post('/login', async (req, res) => {
         isActive: user.status
       };
       console.log('Logged in successfully:', req.session.user); // Log the value of req.session.user
-      if (user.isAdmin) {
+      console.log(req.session.user.isActive)
+      console.log(req.session.user.isAdmin)
+      
+      if (req.session.user.isAdmin) {
         res.redirect('/admin');
-      } 
-      if(user.status){
+      } else if(req.session.user.isActive){
         res.redirect('/main');
-      }else if(user.status != 1){
+      }else if(!req.session.user.isActive){
         res.redirect('/login?error=2');
-      }
-    } else {
+      } 
+    }else {
       res.redirect('/login?error=1');
     }
   } catch (err) {
