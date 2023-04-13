@@ -93,7 +93,7 @@
         <input type="password" id="password" name="password" placeholder="Enter Your Password" required><br><br>
 
         <label for="r_password">Password:</label><br>
-        <input type="password" id="comfirm-password" name="comfirm-password" placeholder="Re-enter Your Password" required><br><br>
+        <input type="password" id="cpassword" name="cpassword" placeholder="Re-enter Your Password" required><br><br>
         
         <div id="error-message"></div>
         <button type="submit" value="signup">Sign up</button><br><br>
@@ -106,9 +106,12 @@
             const error = urlParams.get('error');
     
             // if there is an error message, display it on the page
-            if (error) {
+            if (error == 1) {
                 const errorMessage = document.getElementById('error-message');
                 errorMessage.innerHTML = '<p style="color: red;">' + 'Username already exists!' + '</p>';
+            }else{
+                const errorMessage = document.getElementById('error-message');
+                errorMessage.innerHTML = '<p style="color: red;">' + 'Password dont match!' + '</p>';
             }
         </script>
     
