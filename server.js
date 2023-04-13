@@ -29,7 +29,6 @@ app.use(express.static('public', {
 }));
 
 app.use(express.static(__dirname + '/views'));
-
   const client = new MongoClient(url, { useNewUrlParser: true, useUnifiedTopology: true });
     client.connect().then(() => {
       console.log("Connected successfully to MongoDB server");
@@ -70,7 +69,6 @@ app.get('/main', async (req, res) => {
     const commentCollection = db.collection('Comments');
 
     const currentUser = await userCollection.findOne({ username: req.session.user.username });
-    console.log(currentUser)
 
     const followingUsernames = currentUser.following || [];
 
@@ -96,7 +94,52 @@ app.get('/main', async (req, res) => {
     ];
     
     const posts = await postCollection.aggregate(postQuery).toArray();
+    //console.log(posts)
 
+    const repostedPostIds = currentUser.repost || [];
+    const repostedPostQuery = { _id: { $in: repostedPostIds } };
+    const repostPosts = await postCollection.find(repostedPostQuery).toArray();
+    const originalPostIds = repostPosts.map(post => post.originalPostId);
+    const postIds = Array.from(new Set(originalPostIds));
+    const repostQuery = {
+      _id: { $in: postIds.map(postId => new ObjectId(postId)) }
+    };
+
+    const reposts = await postCollection.find(repostQuery).toArray();
+
+    console.log(followingUsernames)
+    const reposted = [];
+    const followingUsers = await userCollection.find({ username: { $in: followingUsernames } }).toArray();
+    for (const followingUser of followingUsers) {
+      const followingReposted = followingUser.repost || [];
+      reposted.push(...followingReposted);
+    }
+
+    const frepostedPostQuery = { _id: { $in: reposted } };
+    const frepostPosts = await postCollection.find(frepostedPostQuery).toArray();
+    const foriginalPostIds = frepostPosts.map(post => post.originalPostId);
+    const fpostIds = Array.from(new Set(foriginalPostIds));
+    const frepostQuery = {
+      _id: { $in: fpostIds.map(fpostId => new ObjectId(fpostId)) }
+    };
+    
+    const freposts = await postCollection.find(frepostQuery).toArray();
+    
+    for (let i = 0; i < freposts.length; i++) {
+      const frepost = freposts[i];
+      const frepostPost = frepostPosts.find(post => post.originalPostId === frepost._id.toString());
+    
+      if (frepostPost) {
+        frepost.author = frepostPost.author;
+      }
+    }
+    
+    console.log(freposts);
+
+
+    
+    
+    
     const query = req.query.q;
     let users = [];
 
@@ -112,7 +155,7 @@ app.get('/main', async (req, res) => {
         .toArray();
     }
 
-    res.render('main', { currentUser, posts, users, query });
+    res.render('main', { currentUser, posts, freposts, users, query });
 
   } catch (err) {
     console.error('Error loading data:', err);
@@ -490,6 +533,9 @@ app.post('/retweet', async (req, res) => {
     const currentUsername = req.session.user.username;
     const postId = req.body.postId;
 
+    console.log(req.body)
+    console.log(postId)
+
     // Find the original post being retweeted
     const originalPost = await postCollection.findOne({ _id: new ObjectId(postId) });
 
@@ -503,16 +549,48 @@ app.post('/retweet', async (req, res) => {
     // Insert the new retweet post into the database
     const result = await postCollection.insertOne(retweet);
 
-    // Add the new post to the user's timeline
+    // Add the new post to the user's repost
     await userCollection.updateOne(
       { username: currentUsername },
-      { $addToSet: { timeline: result.insertedId } }
+      { $addToSet: { repost: result.insertedId } }
     );
 
     res.redirect('/main');
     console.log("Retweet successful");
   } catch (err) {
     console.error('Error retweeting post:', err);
+    res.status(500).send(err.message);
+  }
+});
+
+app.post('/follow', async (req, res) => {
+  try {
+    if (!req.session.user) {
+      res.redirect('/login');
+      return;
+    }
+
+    const db = client.db('Test');
+    const userCollection = db.collection('User');
+    const currentUsername = req.session.user.username;
+    const usernameToFollow = req.body.username;
+
+    // Add the user being followed to the current user's following list
+    await userCollection.updateOne(
+      { username: currentUsername },
+      { $addToSet: { following: usernameToFollow } }
+    );
+
+    // Add the current user to the user being followed's followers list
+    await userCollection.updateOne(
+      { username: usernameToFollow },
+      { $addToSet: { followers: currentUsername } }
+    );
+
+    res.redirect('/main');
+    console.log("suc")
+  } catch (err) {
+    console.error('Error following user:', err);
     res.status(500).send(err.message);
   }
 });

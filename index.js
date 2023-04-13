@@ -70,7 +70,6 @@ app.get('/main', async (req, res) => {
     const commentCollection = db.collection('Comments');
 
     const currentUser = await userCollection.findOne({ username: req.session.user.username });
-    console.log(currentUser)
 
     const followingUsernames = currentUser.following || [];
 
@@ -490,6 +489,9 @@ app.post('/retweet', async (req, res) => {
     const currentUsername = req.session.user.username;
     const postId = req.body.postId;
 
+    console.log(req.body)
+    console.log(postId)
+
     // Find the original post being retweeted
     const originalPost = await postCollection.findOne({ _id: new ObjectId(postId) });
 
@@ -503,16 +505,48 @@ app.post('/retweet', async (req, res) => {
     // Insert the new retweet post into the database
     const result = await postCollection.insertOne(retweet);
 
-    // Add the new post to the user's timeline
+    // Add the new post to the user's repost
     await userCollection.updateOne(
       { username: currentUsername },
-      { $addToSet: { timeline: result.insertedId } }
+      { $addToSet: { repost: result.insertedId } }
     );
 
     res.redirect('/main');
     console.log("Retweet successful");
   } catch (err) {
     console.error('Error retweeting post:', err);
+    res.status(500).send(err.message);
+  }
+});
+
+app.post('/follow', async (req, res) => {
+  try {
+    if (!req.session.user) {
+      res.redirect('/login');
+      return;
+    }
+
+    const db = client.db('Test');
+    const userCollection = db.collection('User');
+    const currentUsername = req.session.user.username;
+    const usernameToFollow = req.body.username;
+
+    // Add the user being followed to the current user's following list
+    await userCollection.updateOne(
+      { username: currentUsername },
+      { $addToSet: { following: usernameToFollow } }
+    );
+
+    // Add the current user to the user being followed's followers list
+    await userCollection.updateOne(
+      { username: usernameToFollow },
+      { $addToSet: { followers: currentUsername } }
+    );
+
+    res.redirect('/main');
+    console.log("suc")
+  } catch (err) {
+    console.error('Error following user:', err);
     res.status(500).send(err.message);
   }
 });
