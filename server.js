@@ -314,8 +314,11 @@ app.post('/login', async (req, res) => {
       console.log('Logged in successfully:', req.session.user); // Log the value of req.session.user
       if (user.isAdmin) {
         res.redirect('/admin');
-      } else {
+      } 
+      if(user.status){
         res.redirect('/main');
+      }else if(user.status != 1){
+        res.redirect('/login?error=2');
       }
     } else {
       res.redirect('/login?error=1');
